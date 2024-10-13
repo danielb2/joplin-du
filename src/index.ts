@@ -117,7 +117,7 @@ async function getSpace() {
 
 
                 // Loop through and print all notes that reference this resource
-                for (let note of notebookResources.filter(r => r.resourceTitle === resource.resourceTitle)) {
+                for (let note of notebookResources.filter(r => r.id === resource.id)) {
                     noteContent += `  - [${note.noteTitle}](${note.noteLink})\n`;
                 }
 
