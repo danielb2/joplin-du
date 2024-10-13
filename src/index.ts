@@ -2,14 +2,11 @@ import joplin from 'api';
 import { ToolbarButtonLocation } from 'api/types';
 
 joplin.plugins.register({
-	onStart: async function() {
-		// eslint-disable-next-line no-console
-		console.info('Hello world. Test plugin started!');
-		const resources = await joplin.data.get(['resources']);
-		console.info(resources);
-                await registerGetSpace();
-		await getSpace();
-	},
+    onStart: async function() {
+        const resources = await joplin.data.get(['resources']);
+        await registerGetSpace();
+        await getSpace();
+    },
 });
 
 async function registerGetSpace() {
@@ -86,7 +83,7 @@ async function getSpace() {
                 resourceSizeMB: formatSize(resourceSize),
                 resourceSize: resourceSize, // Keep the original size in bytes for total calculation
                 noteTitle: noteTitle,
-                noteLink: `[:/${noteId}]`, // Correct format for note link
+                noteLink: `:/${noteId}`, // Correct format for note link
                 noteId: noteId,
                 id: resourceId
             });
@@ -119,10 +116,10 @@ async function getSpace() {
                 noteContent += `  - **Size:** ${resource.resourceSizeMB} MB\n`;
                 noteContent += `  - **ID:** ${resource.id}\n`;
 
-                
+
                 // Loop through and print all notes that reference this resource
                 for (let note of notebookResources.filter(r => r.resourceTitle === resource.resourceTitle)) {
-                    noteContent += `  - 🔗 [${note.noteTitle}](${note.noteLink})\n`;
+                    noteContent += `  - [${note.noteTitle}](${note.noteLink})\n`;
                 }
 
                 printedResources.add(resource.resourceTitle); // Mark this resource as printed
