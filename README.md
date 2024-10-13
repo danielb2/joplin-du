@@ -5,3 +5,5 @@ Creates a note which contains data on disk usage by notebooks and the resources 
 
 Click the piechart symbol in a new note after creating it.
 
+![](./screenshot.png)
+
