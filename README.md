@@ -1,5 +1,7 @@
-# Joplin Plugin
+# Joplin Disk Usage
 
-This is your new Joplin plugin. It is suggested that you use this README file to document your plugin.
 
-For information on how to build or publish the plugin, please see [GENERATOR_DOC.md](./GENERATOR_DOC.md)
+Creates a note which contains data on disk usage by notebooks and the resources therein
+
+Click the piechart symbol in a new note after creating it.
+
