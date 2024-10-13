@@ -4,9 +4,56 @@ import { ToolbarButtonLocation } from 'api/types';
 joplin.plugins.register({
     onStart: async function() {
         const resources = await joplin.data.get(['resources']);
+        await registerTrash();
         await registerGetSpace();
     },
 });
+
+async function refreshNoteList() {
+    const note = await joplin.workspace.selectedNote();
+    const allNotebooks = await joplin.data.get(['folders'], { fields: ['id'] });
+    const currentNotebookId = note.parent_id; // Assuming parent_id is the current notebook
+    const otherNotebookId = allNotebooks.items.find(folder => folder.id !== currentNotebookId).id;
+
+    // Switch to another notebook and back to refresh
+    await joplin.commands.execute('openFolder', otherNotebookId);
+    await joplin.commands.execute('openFolder', currentNotebookId);
+}
+
+async function registerTrash() {
+
+    joplin.plugins.register({
+        onStart: async function() {
+            // Register the "Send to Trash" command
+            await joplin.commands.register({
+                name: 'sendCurrentNoteToTrash',
+                label: 'Send Current Note to Trash',
+                iconName: 'fas fa-trash',
+                execute: async () => {
+                    const note = await joplin.workspace.selectedNote();
+                    if (note) {
+                        // Move the note to the trash by setting is_conflict to 1
+                        await joplin.data.delete(['notes', note.id]);
+                        await joplin.commands.execute('focusElementNoteList');
+                        await joplin.commands.execute('editor.focus');  // Focus back on the editor
+
+                        console.info(`Note "${note.title}" has been moved to the trash.`);
+                    } else {
+                        console.warn('No note is currently selected.');
+                    }
+                }
+            });
+
+            // Create a toolbar button with a trash bin icon
+            await joplin.views.toolbarButtons.create(
+                'sendToTrashButton',            // Unique button ID
+                'sendCurrentNoteToTrash',       // Command to execute
+                ToolbarButtonLocation.EditorToolbar,  // Location of the button
+            );
+        },
+    });
+}
+
 
 async function registerGetSpace() {
 
@@ -129,9 +176,12 @@ async function getSpace() {
         }
     }
 
+    const currentFolder = await joplin.workspace.selectedFolder();
+
     // Create a new note with the generated content
     const newNote = await joplin.data.post(['notes'], null, {
         title: 'Joplin Disk Usage Report',
+        parent_id: currentFolder.id,
         body: noteContent
     });
     await joplin.commands.execute('openNote', newNote.id);
