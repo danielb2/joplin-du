@@ -1,13 +1,32 @@
 import joplin from 'api';
-import { ToolbarButtonLocation } from 'api/types';
+import { ToolbarButtonLocation, SettingItemType } from 'api/types';
 
 joplin.plugins.register({
     onStart: async function() {
         const resources = await joplin.data.get(['resources']);
+        await settings();
         await registerTrash();
         await registerGetSpace();
     },
 });
+
+async function settings() {
+    await joplin.settings.registerSection('myPluginSettings', {
+        label: 'Disk Usage Settings',
+        iconName: 'fas fa-cog',
+    });
+
+    await joplin.settings.registerSettings({
+        showDeleteButton: {
+            type: SettingItemType.Bool,
+            value: true, // Default value
+            public: true,
+            section: 'myPluginSettings',
+            label: 'Show Delete Button',
+            description: 'Toggle whether to show the Send to Trash button in the editor toolbar.',
+        }
+    });
+}
 
 async function refreshNoteList() {
     const note = await joplin.workspace.selectedNote();
@@ -22,36 +41,34 @@ async function refreshNoteList() {
 
 async function registerTrash() {
 
-    joplin.plugins.register({
-        onStart: async function() {
-            // Register the "Send to Trash" command
-            await joplin.commands.register({
-                name: 'sendCurrentNoteToTrash',
-                label: 'Send Current Note to Trash',
-                iconName: 'fas fa-trash',
-                execute: async () => {
-                    const note = await joplin.workspace.selectedNote();
-                    if (note) {
-                        // Move the note to the trash by setting is_conflict to 1
-                        await joplin.data.delete(['notes', note.id]);
-                        await joplin.commands.execute('focusElementNoteList');
-                        await joplin.commands.execute('editor.focus');  // Focus back on the editor
+    const show = await joplin.settings.value('showDeleteButton');
+    if (!show) { return; }
 
-                        console.info(`Note "${note.title}" has been moved to the trash.`);
-                    } else {
-                        console.warn('No note is currently selected.');
-                    }
-                }
-            });
+    await joplin.commands.register({
+        name: 'sendCurrentNoteToTrash',
+        label: 'Send Current Note to Trash',
+        iconName: 'fas fa-trash',
+        execute: async () => {
+            const note = await joplin.workspace.selectedNote();
+            if (note) {
+                // Move the note to the trash by setting is_conflict to 1
+                await joplin.data.delete(['notes', note.id]);
+                await joplin.commands.execute('focusElementNoteList');
+                await joplin.commands.execute('editor.focus');  // Focus back on the editor
 
-            // Create a toolbar button with a trash bin icon
-            await joplin.views.toolbarButtons.create(
-                'sendToTrashButton',            // Unique button ID
-                'sendCurrentNoteToTrash',       // Command to execute
-                ToolbarButtonLocation.EditorToolbar,  // Location of the button
-            );
-        },
+                console.info(`Note "${note.title}" has been moved to the trash.`);
+            } else {
+                console.warn('No note is currently selected.');
+            }
+        }
     });
+
+    // Create a toolbar button with a trash bin icon
+    await joplin.views.toolbarButtons.create(
+        'sendToTrashButton',            // Unique button ID
+        'sendCurrentNoteToTrash',       // Command to execute
+        ToolbarButtonLocation.EditorToolbar,  // Location of the button
+    );
 }
 
 
