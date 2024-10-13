@@ -60,12 +60,10 @@ async function getSpace() {
         let resourceSize = resource.size; // Size in bytes
         let resourceTitle = resource.title || 'Untitled'; // Fallback if no title is present
 
-        // Find all notes that link to this resource
+        // Correctly fetch all notes that link to this resource
         let linkedNotes = await joplin.data.get(['resources', resourceId, 'notes'], { fields: ['id', 'title', 'parent_id'] });
 
-        console.log('linkedNotes', resourceId, linkedNotes);
-
-        // Sum the sizes by note or notebook
+        // Process each note that references this resource
         for (let note of linkedNotes.items) {
             let noteId = note.id;
             let noteTitle = note.title || 'Untitled Note';
@@ -77,27 +75,21 @@ async function getSpace() {
                 notebookNames[notebookId] = notebook.title;
             }
 
-            // Aggregate resources for the notebook
+            // Initialize resourceData for this notebook if not already present
             if (!resourceData[notebookId]) {
                 resourceData[notebookId] = [];
             }
 
-            // Avoid duplication of resources
-            let existingResource = resourceData[notebookId].find(r => r.resourceTitle === resourceTitle && r.noteId === noteId);
-            if (!existingResource) {
-                // Store resource title, size, and note information
-                resourceData[notebookId].push({
-                    resourceTitle: resourceTitle,
-                    resourceSizeMB: formatSize(resourceSize),
-                    noteTitle: noteTitle,
-                    noteLink: `[:/${noteId}]`, // Correct format for note link
-                    noteId: noteId,
-                    id: resourceId
-                });
-            }
+            // Add the resource data along with its linked note
+            resourceData[notebookId].push({
+                resourceTitle: resourceTitle,
+                resourceSizeMB: formatSize(resourceSize),
+                noteTitle: noteTitle,
+                noteLink: `[:/${noteId}]`, // Correct format for note link
+                noteId: noteId
+            });
         }
     }
-    console.log(resourceData);
 
     // Build the text content for the note
     let noteContent = `# Joplin Disk Usage Report\n\n`;
@@ -106,16 +98,24 @@ async function getSpace() {
         let notebookName = notebookNames[notebookId];
         noteContent += `## Notebook: "${notebookName}"\n\n`;
 
-        for (let resource of resourceData[notebookId]) {
-        console.log(resource);
-            noteContent += `- **Resource**: "${resource.resourceTitle}"\n`;
-            noteContent += `  - **Size:** ${resource.resourceSizeMB} MB\n`;
-            noteContent += `  - **ID:** <small>${resource.id}</small>\n`;
-            noteContent += `  - **Referenced by:**\n`;
-            for (let note of resourceData[notebookId]) {
-                noteContent += `    - [${note.noteTitle}](:/${note.noteId})\n`; // Correct link format
+        let notebookResources = resourceData[notebookId];
+
+        // Loop through each unique resource in this notebook
+        let printedResources = new Set(); // To avoid printing the same resource multiple times
+
+        for (let resource of notebookResources) {
+            if (!printedResources.has(resource.resourceTitle)) {
+                noteContent += `- **Resource**: "${resource.resourceTitle}" (Size: ${resource.resourceSizeMB} MB)\n`;
+                noteContent += `  - **Referenced by:**\n`;
+                
+                // Loop through and print all notes that reference this resource
+                for (let note of notebookResources.filter(r => r.resourceTitle === resource.resourceTitle)) {
+                    noteContent += `    - [${note.noteTitle}](${note.noteLink})\n`;
+                }
+                
+                printedResources.add(resource.resourceTitle); // Mark this resource as printed
+                noteContent += `\n`;
             }
-            noteContent += `\n`;
         }
     }
 
