@@ -5,7 +5,6 @@ joplin.plugins.register({
     onStart: async function() {
         const resources = await joplin.data.get(['resources']);
         await registerGetSpace();
-        await getSpace();
     },
 });
 
@@ -129,9 +128,10 @@ async function getSpace() {
     }
 
     // Create a new note with the generated content
-    await joplin.data.post(['notes'], null, {
+    const newNote = await joplin.data.post(['notes'], null, {
         title: 'Joplin Disk Usage Report',
         body: noteContent
     });
+    await joplin.commands.execute('openNote', newNote.id);
 }
 
