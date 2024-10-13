@@ -95,6 +95,8 @@ async function getSpace() {
     for (let notebookId in resourceData) {
         let notebookName = notebookNames[notebookId];
         let notebookResources = resourceData[notebookId];
+        notebookResources.sort((a, b) => b.resourceSize - a.resourceSize);
+
 
         // Initialize total size for the notebook
         let totalNotebookSize = 0;
