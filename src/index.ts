@@ -84,35 +84,47 @@ async function getSpace() {
             resourceData[notebookId].push({
                 resourceTitle: resourceTitle,
                 resourceSizeMB: formatSize(resourceSize),
+                resourceSize: resourceSize, // Keep the original size in bytes for total calculation
                 noteTitle: noteTitle,
                 noteLink: `[:/${noteId}]`, // Correct format for note link
-                noteId: noteId
+                noteId: noteId,
+                id: resourceId
             });
         }
     }
 
     // Build the text content for the note
-    let noteContent = `# Joplin Disk Usage Report\n\n`;
+    let noteContent = `# Joplin Disk Usage Report\n\n[toc]\n\n`;
 
     for (let notebookId in resourceData) {
         let notebookName = notebookNames[notebookId];
-        noteContent += `## Notebook: "${notebookName}"\n\n`;
-
         let notebookResources = resourceData[notebookId];
 
-        // Loop through each unique resource in this notebook
+        // Initialize total size for the notebook
+        let totalNotebookSize = 0;
+
+        // Calculate total size of the notebook
+        for (let resource of notebookResources) {
+            totalNotebookSize += resource.resourceSize;
+        }
+
+        // Display the total size in the heading
+        noteContent += `## 📓 "${notebookName}" (Total size: ${formatSize(totalNotebookSize)} MB)\n\n`;
+
         let printedResources = new Set(); // To avoid printing the same resource multiple times
 
         for (let resource of notebookResources) {
             if (!printedResources.has(resource.resourceTitle)) {
-                noteContent += `- **Resource**: "${resource.resourceTitle}" (Size: ${resource.resourceSizeMB} MB)\n`;
-                noteContent += `  - **Referenced by:**\n`;
+                noteContent += `- **Resource**: "${resource.resourceTitle}"\n`;
+                noteContent += `  - **Size:** ${resource.resourceSizeMB} MB\n`;
+                noteContent += `  - **ID:** ${resource.id}\n`;
+
                 
                 // Loop through and print all notes that reference this resource
                 for (let note of notebookResources.filter(r => r.resourceTitle === resource.resourceTitle)) {
-                    noteContent += `    - [${note.noteTitle}](${note.noteLink})\n`;
+                    noteContent += `  - 🔗 [${note.noteTitle}](${note.noteLink})\n`;
                 }
-                
+
                 printedResources.add(resource.resourceTitle); // Mark this resource as printed
                 noteContent += `\n`;
             }
