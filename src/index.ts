@@ -90,12 +90,10 @@ async function registerGetSpace() {
 }
 
 async function getSpace() {
-    // Function to convert bytes to MB
     function formatSize(sizeInBytes) {
         return (sizeInBytes / (1024 * 1024)).toFixed(2); // Convert to MB and round to 2 decimal places
     }
 
-    // Fetch all resources (paginated if necessary)
     let page = 1;
     let resources = [];
     let pageSize = 100;
@@ -111,69 +109,67 @@ async function getSpace() {
         page++;
     } while (response.has_more);
 
-    // Now loop through each resource and get its size and linked notes
     let resourceData = {};
-    let notebookNames = {}; // Cache notebook names to avoid redundant API calls
+    let notebookNames = {};
+    let notebookSizes = {}; // Keep track of total sizes for sorting
 
     for (let resource of resources) {
         let resourceId = resource.id;
-        let resourceSize = resource.size; // Size in bytes
-        let resourceTitle = resource.title || 'Untitled'; // Fallback if no title is present
+        let resourceSize = resource.size;
+        let resourceTitle = resource.title || 'Untitled';
 
-        // Correctly fetch all notes that link to this resource
         let linkedNotes = await joplin.data.get(['resources', resourceId, 'notes'], { fields: ['id', 'title', 'parent_id'] });
 
-        // Process each note that references this resource
         for (let note of linkedNotes.items) {
             let noteId = note.id;
             let noteTitle = note.title || 'Untitled Note';
-            let notebookId = note.parent_id; // The notebook containing the note
+            let notebookId = note.parent_id;
 
-            // Fetch the notebook name if it's not already cached
             if (!notebookNames[notebookId]) {
                 let notebook = await joplin.data.get(['folders', notebookId]);
                 notebookNames[notebookId] = notebook.title;
             }
 
-            // Initialize resourceData for this notebook if not already present
             if (!resourceData[notebookId]) {
                 resourceData[notebookId] = [];
             }
 
-            // Add the resource data along with its linked note
             resourceData[notebookId].push({
                 resourceTitle: resourceTitle,
                 resourceSizeMB: formatSize(resourceSize),
-                resourceSize: resourceSize, // Keep the original size in bytes for total calculation
+                resourceSize: resourceSize,
                 noteTitle: noteTitle,
-                noteLink: `:/${noteId}`, // Correct format for note link
+                noteLink: `:/${noteId}`,
                 noteId: noteId,
                 id: resourceId
             });
+
+            // Track total size of each notebook
+            if (!notebookSizes[notebookId]) {
+                notebookSizes[notebookId] = 0;
+            }
+            notebookSizes[notebookId] += resourceSize;
         }
     }
 
-    // Build the text content for the note
+    // Convert notebookSizes object into an array and sort by size
+    let sortedNotebooks = Object.keys(notebookSizes)
+    .map(notebookId => ({ id: notebookId, size: notebookSizes[notebookId] }))
+    .sort((a, b) => b.size - a.size);
+
     let noteContent = `# Joplin Disk Usage Report\n\n[toc]\n\n`;
 
-    for (let notebookId in resourceData) {
+    for (let notebook of sortedNotebooks) {
+        let notebookId = notebook.id;
         let notebookName = notebookNames[notebookId];
         let notebookResources = resourceData[notebookId];
         notebookResources.sort((a, b) => b.resourceSize - a.resourceSize);
 
+        let totalNotebookSize = notebook.size;
 
-        // Initialize total size for the notebook
-        let totalNotebookSize = 0;
-
-        // Calculate total size of the notebook
-        for (let resource of notebookResources) {
-            totalNotebookSize += resource.resourceSize;
-        }
-
-        // Display the total size in the heading
         noteContent += `## 📓 "${notebookName}" (Total size: ${formatSize(totalNotebookSize)} MB)\n\n`;
 
-        let printedResources = new Set(); // To avoid printing the same resource multiple times
+        let printedResources = new Set();
 
         for (let resource of notebookResources) {
             if (!printedResources.has(resource.resourceTitle)) {
@@ -181,13 +177,11 @@ async function getSpace() {
                 noteContent += `  - **Size:** ${resource.resourceSizeMB} MB\n`;
                 noteContent += `  - **ID:** ${resource.id}\n`;
 
-
-                // Loop through and print all notes that reference this resource
                 for (let note of notebookResources.filter(r => r.id === resource.id)) {
                     noteContent += `  - [${note.noteTitle}](${note.noteLink})\n`;
                 }
 
-                printedResources.add(resource.resourceTitle); // Mark this resource as printed
+                printedResources.add(resource.resourceTitle);
                 noteContent += `\n`;
             }
         }
@@ -195,7 +189,6 @@ async function getSpace() {
 
     const currentFolder = await joplin.workspace.selectedFolder();
 
-    // Create a new note with the generated content
     const newNote = await joplin.data.post(['notes'], null, {
         title: 'Joplin Disk Usage Report',
         parent_id: currentFolder.id,
