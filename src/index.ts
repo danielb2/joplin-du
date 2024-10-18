@@ -55,8 +55,6 @@ async function registerTrash() {
                 await joplin.data.delete(['notes', note.id]);
                 await joplin.commands.execute('focusElementNoteList');
                 await joplin.commands.execute('editor.focus');  // Focus back on the editor
-
-                console.info(`Note "${note.title}" has been moved to the trash.`);
             } else {
                 console.warn('No note is currently selected.');
             }
@@ -79,7 +77,6 @@ async function registerGetSpace() {
         label: 'Create Disk Usage Report',
         iconName: 'fas fa-chart-pie',
         execute: async () => {
-            // Call the getSpace function when the button is clicked
             await getSpace();
         }
     });
@@ -89,10 +86,24 @@ async function registerGetSpace() {
 
 }
 
+async function createTempNote() {
+    const currentFolder = await joplin.workspace.selectedFolder();
+
+    const newNote = await joplin.data.post(['notes'], null, {
+        title: 'Joplin Disk Usage Report',
+        parent_id: currentFolder.id,
+        body: 'Wait ... processing'
+    });
+    await joplin.commands.execute('openNote', newNote.id);
+    return newNote;
+}
+
 async function getSpace() {
     function formatSize(sizeInBytes) {
         return (sizeInBytes / (1024 * 1024)).toFixed(2); // Convert to MB and round to 2 decimal places
     }
+
+    const tmpNote = await createTempNote();
 
     let page = 1;
     let resources = [];
@@ -188,12 +199,13 @@ async function getSpace() {
     }
 
     const currentFolder = await joplin.workspace.selectedFolder();
-
     const newNote = await joplin.data.post(['notes'], null, {
         title: 'Joplin Disk Usage Report',
         parent_id: currentFolder.id,
         body: noteContent
     });
     await joplin.commands.execute('openNote', newNote.id);
+    console.info(tmpNote);
+    await joplin.data.delete(['notes', tmpNote.id]);
 }
 
