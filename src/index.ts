@@ -28,17 +28,6 @@ async function settings() {
     });
 }
 
-async function refreshNoteList() {
-    const note = await joplin.workspace.selectedNote();
-    const allNotebooks = await joplin.data.get(['folders'], { fields: ['id'] });
-    const currentNotebookId = note.parent_id; // Assuming parent_id is the current notebook
-    const otherNotebookId = allNotebooks.items.find(folder => folder.id !== currentNotebookId).id;
-
-    // Switch to another notebook and back to refresh
-    await joplin.commands.execute('openFolder', otherNotebookId);
-    await joplin.commands.execute('openFolder', currentNotebookId);
-}
-
 async function registerTrash() {
 
     const show = await joplin.settings.value('showDeleteButton');
@@ -103,7 +92,7 @@ async function getSpace() {
         return (sizeInBytes / (1024 * 1024)).toFixed(2); // Convert to MB and round to 2 decimal places
     }
 
-    const tmpNote = await createTempNote();
+    const newNote = await createTempNote();
 
     let page = 1;
     let resources = [];
@@ -198,14 +187,13 @@ async function getSpace() {
         }
     }
 
-    const currentFolder = await joplin.workspace.selectedFolder();
-    const newNote = await joplin.data.post(['notes'], null, {
-        title: 'Joplin Disk Usage Report',
-        parent_id: currentFolder.id,
+    await joplin.data.put(['notes', newNote.id], null, {
         body: noteContent
     });
-    await joplin.commands.execute('openNote', newNote.id);
-    console.info(tmpNote);
-    await joplin.data.delete(['notes', tmpNote.id]);
-}
 
+    // no way to refresh current note ater update
+    const tmpNote = await joplin.data.post(['notes'], null, { title: 'delete this note' });
+    await joplin.commands.execute('openNote', tmpNote.id);
+    await joplin.data.delete(['notes', tmpNote.id]);
+    await joplin.commands.execute('openNote', newNote.id);
+}
